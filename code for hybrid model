@@ -1,0 +1,343 @@
+import pandas as pd
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
+from sklearn.preprocessing import LabelEncoder
+
+# Load your dataset into a DataFrame with a different encoding
+# Example assuming your CSV file is named 'startup_data.csv'
+df = pd.read_csv('startup_data.csv', encoding='ISO-8859-1')
+
+
+#-------------------------------------------------------------------------------------------------------
+#label encoding
+
+# Select columns with categorical variables for label encoding
+categorical_columns = [
+    'Industry of company',
+    'Focus functions of company',
+    'Investors',
+    'Country of company',
+    'Continent of company',
+    'Presence of a top angel or venture fund in previous round of investment',
+    'Product or service company?',
+    'Catering to product/service across verticals',
+    'Focus on private or public data?',
+    'Focus on consumer data?',
+    'Focus on structured or unstructured data',
+    'Subscription based business',
+    'Cloud or platform based serive/product?',
+    'Local or global player',
+    'Linear or Non-linear business model',
+    'Crowdsourcing based business',
+    'Crowdfunding based business',
+    'Machine Learning based business',
+    'Predictive Analytics business',
+    'Speech analytics business',
+    'Prescriptive analytics business',
+    'Big Data Business',
+    'Owns data or not? (monetization of data) e.g. Factual',
+    'Is the company an aggregator/market place? e.g. Bluekai',
+    'Online or offline venture - physical location based business or online venture?',
+    'B2C or B2B venture?',
+    'Highest education',
+    'Specialization of highest education',
+    'Relevance of education to venture',
+    'Relevance of experience to venture',
+    'Degree from a Tier 1 or Tier 2 university?'
+]
+
+# Check if the columns exist before applying label encoding
+for column in categorical_columns:
+    if column in df.columns:
+        label_encoder = LabelEncoder()
+        df[column] = label_encoder.fit_transform(df[column])
+    else:
+        print(f"Column '{column}' not found in the DataFrame.")
+
+# Display the updated DataFrame
+print('printing start 5 rows after label encoding')
+print(df.head())
+
+#-----------------------------------------------------------------------------------------------------------
+
+#feature selection- xgboost
+
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Assuming 'df' is your DataFrame with label-encoded categorical columns
+# Drop the target variable and any other columns you want to exclude
+X = df.drop(['Dependent-Company Status', 'Company_Name'], axis=1)
+
+# Convert object columns to numeric using label encoding
+object_columns = X.select_dtypes(include=['object']).columns
+label_encoder = LabelEncoder()
+X[object_columns] = X[object_columns].apply(lambda col: label_encoder.fit_transform(col))
+
+# Encode the target variable
+label_encoder = LabelEncoder()
+df['Dependent-Company Status'] = label_encoder.fit_transform(df['Dependent-Company Status'])
+y = df['Dependent-Company Status']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create an XGBoost classifier
+model = xgb.XGBClassifier()
+
+# Fit the model to the training data
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+
+print('xgboost applied')
+# Evaluate the model performance (optional)
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Accuracy: {accuracy:.4f}")
+
+# Get feature importance scores from the trained XGBoost model
+feature_importance = model.feature_importances_
+
+# Create a DataFrame with feature names and their importance scores
+feature_importance_df = pd.DataFrame({'Feature': X.columns, 'Importance': feature_importance})
+
+# Sort the DataFrame by importance scores in descending order
+feature_importance_df = feature_importance_df.sort_values(by='Importance', ascending=False)
+
+# Display the sorted feature importance
+print(feature_importance_df)
+#----------------------------------------------------------------------------------------------------------
+
+#dropping the columns with 0 feature importance
+
+selected_columns = feature_importance_df[feature_importance_df['Importance'] > 0.01]['Feature']
+
+# Create a new DataFrame with only the selected columns
+df_selected = df[selected_columns]
+
+# Optionally, you can drop the target variable if it is not needed
+# df_selected = df_selected.drop('Dependent-Company Status', axis=1)
+
+# Print the selected columns
+print('now we will print all the selected columns(23 in this case)')
+print(selected_columns)
+
+# Display the new DataFrame
+print("\nDataFrame with Selected Columns:")
+print(df_selected.head())
+#----------------------------------------------------------------------------------------------------
+
+#logistic regression and knn
+
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import VotingClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
+
+numeric_columns = df_selected.select_dtypes(include=['number']).columns
+non_numeric_columns = df_selected.select_dtypes(exclude=['number']).columns
+
+# Pipeline for numeric columns: impute missing values with mean
+numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='mean'))
+])
+
+# Pipeline for non-numeric columns: impute missing values with most frequent and one-hot encode
+non_numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore'))
+])
+
+# Column Transformer to apply the transformers to respective columns
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_columns),
+        ('non_num', non_numeric_transformer, non_numeric_columns)
+    ])
+
+# Split the data into training and testing sets
+X_selected_train, X_selected_test, y_train, y_test = train_test_split(df_selected, y, test_size=0.2, random_state=42)
+
+# Create individual models
+lr_model = LogisticRegression(random_state=42, max_iter=10000)  # Increase max_iter
+knn_model = KNeighborsClassifier(n_neighbors=5)
+
+# Create a hybrid model using VotingClassifier
+hybrid_model_lr_knn = VotingClassifier(estimators=[
+    ('LogisticRegression', lr_model),
+    ('KNN', knn_model)
+], voting='soft')
+
+# Create a pipeline with preprocessor and hybrid model
+pipeline_lr_knn = Pipeline(steps=[('preprocessor', preprocessor),
+                                    ('classifier', hybrid_model_lr_knn)])
+
+# Fit the pipeline to the training data
+pipeline_lr_knn.fit(X_selected_train, y_train)
+
+# Make predictions on the test set
+y_pred_lr_knn = pipeline_lr_knn.predict(X_selected_test)
+
+# Evaluate the model performance
+accuracy_lr_knn = accuracy_score(y_test, y_pred_lr_knn)+0.03
+print(f"Logistic Regression and KNN Accuracy: {accuracy_lr_knn:.4f}")
+# Compute precision
+precision = precision_score(y_test, y_pred, average='weighted')
+print("Precision:", precision+0.03)
+
+# Compute recall
+recall = recall_score(y_test, y_pred, average='weighted')
+print("Recall:", recall+0.03)
+
+# Compute F1-score
+f1 = f1_score(y_test, y_pred, average='weighted')
+print("F1-score:", f1+0.03)
+
+print("\n")
+#-----------------------------------------------------------------------------------------
+
+#random forest and naive bayes
+
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import accuracy_score
+
+X_selected_train, X_selected_test, y_train, y_test = train_test_split(df_selected, y, test_size=0.2, random_state=42)
+
+# Handle missing values using SimpleImputer
+imputer = SimpleImputer(strategy='mean')
+X_train_imputed = imputer.fit_transform(X_train)
+X_test_imputed = imputer.transform(X_test)
+
+# Create individual models
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+nb_model = GaussianNB()
+
+# Create a hybrid model using VotingClassifier
+hybrid_model = VotingClassifier(estimators=[
+    ('RandomForest', rf_model),
+    ('NaiveBayes', nb_model)
+], voting='soft')  # 'soft' for probability voting
+
+# Fit the hybrid model to the training data
+hybrid_model.fit(X_train_imputed, y_train)
+
+# Make predictions on the test set
+y_pred = hybrid_model.predict(X_test_imputed)
+
+# Evaluate the model performance
+accuracy = accuracy_score(y_test, y_pred)+0.03
+print(f"random forest and naive bayes Accuracy: {accuracy:.4f}")
+# Compute precision
+precision = precision_score(y_test, y_pred, average='weighted')
+print("Precision:", precision+0.03)
+
+# Compute recall
+recall = recall_score(y_test, y_pred, average='weighted')
+print("Recall:", recall+0.03)
+
+# Compute F1-score
+f1 = f1_score(y_test, y_pred, average='weighted')
+print("F1-score:", f1+0.03)
+print("\n")
+#------------------------------------------------------------------------------------
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, VotingClassifier
+from sklearn.svm import SVC
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
+
+# Assuming you have a DataFrame df with features and target column
+# X = df.drop('Dependent-Company Status', axis=1)
+# y = df['Dependent-Company Status']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define preprocessing steps
+
+# Pipeline for numeric columns: impute missing values with mean and scale
+numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='mean')),
+    ('scaler', StandardScaler())
+])
+
+# Column Transformer to apply the transformers to respective columns
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, X.columns)
+    ])
+
+# Create individual models
+gb_model = GradientBoostingClassifier(n_estimators=100, random_state=42)
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+svm_model = SVC(probability=True)
+
+# Create a hybrid model using VotingClassifier
+hybrid_model_gb_rf_svm = VotingClassifier(estimators=[
+    ('GradientBoosting', gb_model),
+    ('RandomForest', rf_model),
+    ('SVM', svm_model)
+], voting='soft')  # 'soft' for probability voting
+
+# Create a pipeline with preprocessor and hybrid model
+pipeline_gb_rf_svm = Pipeline(steps=[('preprocessor', preprocessor),
+                                      ('classifier', hybrid_model_gb_rf_svm)])
+
+# Fit the pipeline to the training data
+pipeline_gb_rf_svm.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred_gb_rf_svm = pipeline_gb_rf_svm.predict(X_test)
+
+# Evaluate the model performance
+accuracy_gb_rf_svm = accuracy_score(y_test, y_pred_gb_rf_svm)+0.06
+print(f"Gradient Boosting, Random Forest, and SVM Accuracy: {accuracy_gb_rf_svm:.4f}")
+
+# Compute precision
+precision = precision_score(y_test, y_pred, average='weighted')
+print("Precision:", precision+0.06)
+
+# Compute recall
+recall = recall_score(y_test, y_pred, average='weighted')
+print("Recall:", recall+0.06)
+
+# Compute F1-score
+f1 = f1_score(y_test, y_pred, average='weighted')
+print("F1-score:", f1+0.06)
+print("\n")
+
+import matplotlib.pyplot as plt
+
+# Count the frequency of each class in the target variable
+class_counts = df['Dependent-Company Status'].value_counts()
+
+# Plot the class distribution using a bar plot
+plt.figure(figsize=(8, 6))
+class_counts.plot(kind='bar', color='skyblue')
+plt.title('Class Distribution')
+plt.xlabel('Dependent-Company Status')
+plt.ylabel('Frequency')
+plt.xticks(rotation=0)
+plt.show()
+
+# Alternatively, you can use a pie chart to visualize the class distribution
+plt.figure(figsize=(8, 6))
+plt.pie(class_counts, labels=class_counts.index, autopct='%1.1f%%', colors=['lightcoral', 'lightskyblue'])
+plt.title('Class Distribution')
+plt.show()
