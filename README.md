@@ -3,7 +3,6 @@
 ## Table of Contents
 - [**Project Overview**](#project-overview)
 - [**Installation**](#installation)
-- [**Usage**](#usage)
 - [**Dataset**](#dataset)
 - [**Model Architecture**](#model-architecture)
 - [**Results**](#results)
@@ -16,11 +15,11 @@ This project focuses on predicting the success of start-ups using a hybrid machi
 ## Installation
 1. Clone the repository:
     ```bash
-    git clone https://github.com/your-username/startup-success-prediction.git
+    git clone https://github.com/sompuradhruv/startup-success-prediction-analysis.git
     ```
 2. Navigate to the project directory:
     ```bash
-    cd startup-success-prediction
+    cd startup-success-prediction-analysis
     ```
 3. Create and activate a virtual environment:
     ```bash
@@ -30,20 +29,6 @@ This project focuses on predicting the success of start-ups using a hybrid machi
 4. Install the required packages:
     ```bash
     pip install -r requirements.txt
-    ```
-
-## Usage
-1. Preprocess the data:
-    ```bash
-    python preprocess_data.py
-    ```
-2. Train the model:
-    ```bash
-    python train_model.py
-    ```
-3. Evaluate the model:
-    ```bash
-    python evaluate_model.py
     ```
 
 ## Dataset
@@ -56,13 +41,45 @@ The dataset used in this project includes a comprehensive set of features that c
 
 Given the nature of start-up data, our dataset exhibits class imbalance, with successful start-ups comprising 64.6% and unsuccessful ones 35.4%. To address this, we apply robust preprocessing techniques, including handling missing values, label encoding categorical variables, and feature selection using XGBoost to prioritize influential features.
 
+###Dataset Heatmap
+
+![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/f39d28fb-e450-4c4b-b47d-e61e133912d3)
+
+###Pie Chat distribution of target variable
+
+![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/026dc0a3-cacd-4471-b537-81611bc08d03)
+
+###Corelation Matrix of dataset
+
+![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/cb89396d-c38a-470a-b170-c373de397152)
+
+
 ## Model Architecture
 The project follows a structured approach:
+
+![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/6bcb5848-da11-4ced-9b2b-ce2888f71d74)
+
+![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/6fb29a13-8e07-4d84-afb6-8f01d3a2f551)
+
+
 1. **Data Acquisition and Pre-processing**: Cleaning data, handling missing values, and preparing features for analysis.
 2. **Feature Selection using XGBoost**: Identifying key features that significantly impact start-up success.
-3. **Hybrid Model Construction**: Integrating multiple machine learning algorithms to create a robust predictive model.
-4. **Ensemble Model Development**: Building an ensemble model using VotingClassifier to leverage the strengths of individual algorithms.
-5. **Evaluation and Visualization**: Assessing model performance using metrics such as accuracy, precision, recall, and F1-score. Visualizing results to gain insights into model behavior.
+
+   ![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/1514854b-b845-4340-ada7-8c3e045f1447)
+
+4. **Hybrid Model Construction**: Integrating multiple machine learning algorithms to create a robust predictive model.
+5. **Ensemble Model Development**: Building an ensemble model using VotingClassifier to leverage the strengths of individual algorithms.
+
+   ![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/89329861-538f-4065-b1ff-bb83dfd57645)
+
+7. **Evaluation and Visualization**: Assessing model performance using metrics such as accuracy, precision, recall, and F1-score. Visualizing results to gain insights into model behavior.
+
+![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/e6911c4d-e191-444d-8164-0da75285e7ca)
+
+###Confusion Matrix
+
+![image](https://github.com/sompuradhruv/Start-Up-Success-Prediction-Analysis/assets/78086198/37e0c923-1207-466a-9a85-df3ae02e82dd)
+
 
 ## Results
 The hybrid model combining Gradient Boosting, Random Forest, and SVM achieved the following results:
